@@ -1,7 +1,13 @@
 import mongoose from "mongoose";
-
+import { nanoid } from "nanoid";
 const userSchema = new mongoose.Schema(
   {
+    u_id: {
+      type: String,
+      required: true,
+      unique: true,
+      default: ()=> nanoid(10),
+    },
     name: {
       type: String,
       required: true,
@@ -34,7 +40,7 @@ const userSchema = new mongoose.Schema(
       default: "none",
     },
   },
-  { timestamps: true }
+  { timestamps: true , discriminatorKey: 'role'} // Add discriminatorKey to schema in order to use discriminator
 );
 
 // Export User Model
