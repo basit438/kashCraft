@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const sellerSchema = new mongoose.Schema(
+const SellerSchema = new mongoose.Schema(
   {
     email: {
       type: String,
@@ -18,7 +18,10 @@ const sellerSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    gstinNumber: {
+    artisan: {
+      type: String,
+    },
+    registrationNumber: {
       type: String,
       required: true,
       unique: true,
@@ -27,30 +30,40 @@ const sellerSchema = new mongoose.Schema(
     businessNature: {
       type: String,
       required: true,
-      trim: true,
-      enum: ["Retail", "Wholesale", "Manufacturing", "Other"],
     },
     businessAddress: {
       type: String,
       required: true,
-      trim: true,
     },
     contactNumber: {
       type: String,
       required: true,
+      match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"],
+    },
+    panNumber: {
+      type: String,
+      required: true,
       unique: true,
-      trim: true,
+      uppercase: true,
+    },
+    aadharNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    subscription: {
+      type: String,
+      default: "none",
+      enum: ["none", "active", "expired"],
     },
     isBusinessVerified: {
       type: Boolean,
       default: false,
     },
-    role: {
-      type: String,
-      default: "seller",
-    },
   },
   { timestamps: true }
 );
 
-export default mongoose.models.Seller || mongoose.model("Seller", sellerSchema);
+// Use an existing model if it exists to prevent OverwriteModelError
+const Seller = mongoose.models.Seller || mongoose.model("Seller", SellerSchema);
+export default Seller;

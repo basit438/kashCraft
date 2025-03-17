@@ -116,137 +116,173 @@ export const loginUser = async (req) => {
 
 export const registerSeller = async (req) => {
   try {
-    await dbConnect();
-
+    
+    await dbConnect(); // Ensure database connection
+   
     // Parse the request body
+   
+    const body = await req.json();
+
     const {
       email,
       password,
       businessName,
-      gstinNumber,
+      registrationNumber,
       businessNature,
       businessAddress,
       contactNumber,
-    } = await req.json();
+      panNumber,
+      aadharNumber,
+      artisan,
+    } = body;
 
-    // Validate required fields
+    // Validate input: All required fields must be provided
+   
     if (
       !email ||
       !password ||
       !businessName ||
-      !gstinNumber ||
+      !registrationNumber ||
       !businessNature ||
       !businessAddress ||
-      !contactNumber
+      !contactNumber ||
+      !panNumber ||
+      !aadharNumber
     ) {
-      return Response.json(
-        { message: "All fields are required" },
+     
+      return new Response(
+        JSON.stringify({ message: "All fields are required" }),
         { status: 400 }
       );
     }
-
-    // Check if a seller with the provided email already exists
+  
+    // Check if a seller with this email already exists
+   
     const existingSeller = await Seller.findOne({ email });
     if (existingSeller) {
-      // If updating an existing seller, check if GSTIN is changing
-      if (existingSeller.gstinNumber !== gstinNumber) {
-        const sellerWithGSTIN = await Seller.findOne({ gstinNumber });
-        if (
-          sellerWithGSTIN &&
-          sellerWithGSTIN._id.toString() !== existingSeller._id.toString()
-        ) {
-          return Response.json(
-            { message: "GSTIN Number already in use" },
-            { status: 400 }
-          );
-        }
-      }
-      // Check if contact number is changing
-      if (existingSeller.contactNumber !== contactNumber) {
-        const sellerWithContact = await Seller.findOne({ contactNumber });
-        if (
-          sellerWithContact &&
-          sellerWithContact._id.toString() !== existingSeller._id.toString()
-        ) {
-          return Response.json(
-            { message: "Contact Number already in use" },
-            { status: 400 }
-          );
-        }
-      }
-      // Hash the new password before updating
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Update the existing seller record
-      const updatedSeller = await Seller.findByIdAndUpdate(
-        existingSeller._id,
-        {
-          email,
-          password: hashedPassword,
-          businessName,
-          gstinNumber,
-          businessNature,
-          businessAddress,
-          contactNumber,
-          role: "seller", // ensure role is set to seller
-          isBusinessVerified: false,
-        },
-        { new: true, runValidators: true }
-      );
-      return Response.json(
-        { message: "Seller updated successfully", seller: updatedSeller },
-        { status: 200 }
-      );
-    } else {
-      // For a new seller, check if GSTIN is already registered
-      const sellerWithGSTIN = await Seller.findOne({ gstinNumber });
-      if (sellerWithGSTIN) {
-        return Response.json(
-          { message: "GSTIN Number already in use" },
-          { status: 400 }
-        );
-      }
-      // For a new seller, check if Contact Number is already registered
-      const sellerWithContact = await Seller.findOne({ contactNumber });
-      if (sellerWithContact) {
-        return Response.json(
-          { message: "Contact Number already in use" },
-          { status: 400 }
-        );
-      }
-
-      // Hash the password before creating a new seller
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create a new seller document
-      const newSeller = new Seller({
-        email,
-        password: hashedPassword,
-        businessName,
-        gstinNumber,
-        businessNature,
-        businessAddress,
-        contactNumber,
-        role: "seller", // explicitly set role to seller
-        isBusinessVerified: false,
-      });
-      await newSeller.save();
-
-      return Response.json(
-        { message: "Seller registered successfully", seller: newSeller },
-        { status: 201 }
+     
+      return new Response(
+        JSON.stringify({ message: "Seller already exists" }),
+        { status: 400 }
       );
     }
+    
+
+    // Hash the password before saving
+   
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+
+    // Create a new seller document
+   
+    const newSeller = new Seller({
+      email,
+      password: hashedPassword,
+      businessName,
+      registrationNumber,
+      businessNature,
+      businessAddress,
+      contactNumber,
+      panNumber,
+      aadharNumber,
+      isBusinessVerified: false,
+      subscription: "none",
+      artisan: artisan || "",
+    });
+    
+
+    // Save the seller to the database
+   
+    await newSeller.save();
+    
+
+    // Return success response
+    
+    return new Response(
+      JSON.stringify({ message: "Seller registered successfully. PLease wait for admin approval to login into your seller account" }),
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error registering seller:", error);
-    return Response.json(
-      { message: "Internal Server Error", error: error.message },
+    return new Response(
+      JSON.stringify({ message: "Internal Server Error", error: error.message }),
       { status: 500 }
     );
   }
 };
 
+// login Seller Controller
 
+export const sellerLogin = async (req) => {
+  try {
+    await dbConnect(); // Ensure database connection
+
+    // Parse the request body
+    const body = await req.json();
+    const { email, password } = body;
+
+    // Validate input: Email and password must be provided
+    if (!email || !password) {
+      return new Response(
+        JSON.stringify({ message: "Email and password are required" }),
+        { status: 400 }
+      );
+    }
+
+    // Check if seller exists
+    const seller = await Seller.findOne({ email });
+    if (!seller) {
+      return new Response(
+        JSON.stringify({ message: "Invalid credentials" }),
+        { status: 401 }
+      );
+    }
+
+    // Check if business is verified
+    if (!seller.isBusinessVerified) {
+      return new Response(
+        JSON.stringify({ message: "Your account verification is pending. Please wait for admin approval." }),
+        { status: 403 }
+      );
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, seller.password);
+    if (!isMatch) {
+      return new Response(
+        JSON.stringify({ message: "Invalid credentials" }),
+        { status: 401 }
+      );
+    }
+
+    // Generate a JWT token
+    const token = jwt.sign(
+      { id: seller._id, email: seller.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Return success response with token
+    return new Response(
+      JSON.stringify({
+        message: "Login successful",
+        token,
+        seller: {
+          id: seller._id,
+          email: seller.email,
+          businessName: seller.businessName,
+        },
+      }),
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error logging in seller:", error);
+    return new Response(
+      JSON.stringify({ message: "Internal Server Error", error: error.message }),
+      { status: 500 }
+    );
+  }
+};
 
 
 
