@@ -113,7 +113,6 @@ export const loginUser = async (req) => {
 
 
 // registerSeller Controller
-;
 
 export const registerSeller = async (req) => {
   try {
@@ -186,6 +185,8 @@ export const registerSeller = async (req) => {
       contactNumber,
       panNumber,
       aadharNumber,
+      isBusinessVerified: false,
+      subscription: "none",
       artisan: artisan || "",
     });
     
@@ -198,7 +199,7 @@ export const registerSeller = async (req) => {
     // Return success response
     
     return new Response(
-      JSON.stringify({ message: "Seller registered successfully" }),
+      JSON.stringify({ message: "Seller registered successfully. PLease wait for admin approval to login into your seller account" }),
       { status: 201 }
     );
   } catch (error) {
@@ -210,10 +211,78 @@ export const registerSeller = async (req) => {
   }
 };
 
+// login Seller Controller
 
+export const sellerLogin = async (req) => {
+  try {
+    await dbConnect(); // Ensure database connection
 
+    // Parse the request body
+    const body = await req.json();
+    const { email, password } = body;
 
+    // Validate input: Email and password must be provided
+    if (!email || !password) {
+      return new Response(
+        JSON.stringify({ message: "Email and password are required" }),
+        { status: 400 }
+      );
+    }
 
+    // Check if seller exists
+    const seller = await Seller.findOne({ email });
+    if (!seller) {
+      return new Response(
+        JSON.stringify({ message: "Invalid credentials" }),
+        { status: 401 }
+      );
+    }
+
+    // Check if business is verified
+    if (!seller.isBusinessVerified) {
+      return new Response(
+        JSON.stringify({ message: "Your account verification is pending. Please wait for admin approval." }),
+        { status: 403 }
+      );
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, seller.password);
+    if (!isMatch) {
+      return new Response(
+        JSON.stringify({ message: "Invalid credentials" }),
+        { status: 401 }
+      );
+    }
+
+    // Generate a JWT token
+    const token = jwt.sign(
+      { id: seller._id, email: seller.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Return success response with token
+    return new Response(
+      JSON.stringify({
+        message: "Login successful",
+        token,
+        seller: {
+          id: seller._id,
+          email: seller.email,
+          businessName: seller.businessName,
+        },
+      }),
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error logging in seller:", error);
+    return new Response(
+      JSON.stringify({ message: "Internal Server Error", error: error.message }),
+      { status: 500 }
+    );
+  }
+};
 
 
 
