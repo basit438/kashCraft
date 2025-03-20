@@ -34,13 +34,8 @@ const userSchema = new mongoose.Schema(
       enum: ["buyer", "seller", "admin"],
       default: "buyer",
     },
-    subscriptionStatus: {
-      type: String,
-      enum: ["none", "active", "expired"],
-      default: "none",
-    },
   },
-  { timestamps: true , discriminatorKey: 'role'} // Add discriminatorKey to schema in order to use discriminator
+  { timestamps: true } 
 );
 
 // Export User Model
