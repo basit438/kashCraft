@@ -13,7 +13,7 @@ const handicraftSchema = new mongoose.Schema({
   category:{
     type:String,
     required:true,
-    enum:["Papier-Mâché", "Walnut Wood Carving", "Wooden Work", "Copperware", "Crewel/Chain Stitch Embroidery", "Silverware", "Wicker Work"],
+    enum:["Papier-Mâché", "Walnut Wood Carving", "Wooden Work", "Copperware", "Crewel/Chain Stitch Embroidery", "Silverware", "Wicker Work", "Others"],
   },
   subCategory:{
     type:String,
